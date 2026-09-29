@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>SO-100 Digital Twin</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230b0f14'/><path d='M8 25h16M12 25l3-9 7-5M22 11l3 3' stroke='%23f2b632' stroke-width='3' stroke-linecap='round' fill='none'/></svg>" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>SO-100 Digital Twin</h1>
+      </div>
+      <label class="picker">
+        <span>Episode</span>
+        <select id="episode" aria-label="Episode"></select>
+      </label>
+      <div id="meta" class="meta"></div>
+    </header>
+
+    <main class="stage">
+      <section id="viewport" class="viewport">
+        <div id="status" class="status">Loading…</div>
+        <div class="legend">
+          <label><input id="show-state" type="checkbox" checked /><i class="sw state"></i>Observed state</label>
+          <label id="action-legend"><input id="show-action" type="checkbox" checked /><i class="sw action"></i>Commanded action (ghost)</label>
+        </div>
+        <div class="hint">drag to orbit · scroll to zoom · space to play · ←/→ step</div>
+      </section>
+      <aside class="side">
+        <div id="video-card" class="card" hidden>
+          <div class="card-title"><span>Camera</span><span id="camera-name" class="card-sub"></span></div>
+          <video id="video" muted playsinline preload="auto"></video>
+        </div>
+        <div class="card readout-card">
+          <div class="card-title"><span>Joint readout</span><span class="card-sub">recorded units</span></div>
+          <table class="readout">
+            <thead>
+              <tr><th>Joint</th><th class="num">State</th><th class="num">Cmd</th><th class="num">|Δ|</th><th class="bar-col">Tracking error</th></tr>
+            </thead>
+            <tbody id="readout"></tbody>
+          </table>
+          <div id="readout-foot" class="card-foot"></div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="transport">
+      <button id="play" class="play" data-state="paused" aria-label="Play">
+        <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+        <svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+      </button>
+      <input id="scrub" type="range" min="0" max="1" step="0.01" value="0" aria-label="Timeline" />
+      <span id="time" class="time">00.00s</span>
+      <select id="speed" aria-label="Playback speed">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </section>
+
+    <section id="plots" class="plots"></section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
