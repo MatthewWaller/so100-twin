@@ -1,0 +1,22 @@
+{
+  "episodes": [
+    {
+      "id": "teleop-block-pickup-ep0",
+      "label": "Teleop demo \u00b7 episode 0",
+      "file": "teleop-block-pickup-ep0.json",
+      "task": "Place the block in the bowl",
+      "frames": 447,
+      "fps": 30,
+      "video": true
+    },
+    {
+      "id": "policy-rollout-ep0",
+      "label": "Policy rollout (missed grasp) \u00b7 episode 0",
+      "file": "policy-rollout-ep0.json",
+      "task": "Place the block in the bowl",
+      "frames": 351,
+      "fps": 30,
+      "video": true
+    }
+  ]
+}
