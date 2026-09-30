@@ -26,7 +26,7 @@ In the teleop episode, look at the gripper plot around 9–11 s. The command (da
 - **Transport**: play/pause, scrubbing, 0.25×–2× speed, `space` to play, `←/→` to step one frame
   (hold `shift` for 10 frames)
 - **Synced plots**: one canvas chart per joint with the playhead. Click or drag a chart to seek.
-- **Camera video** kept in sync with the timeline
+- **Camera frames** drawn by index from the playback clock, so the footage stays locked to the arm in every browser
 - **Joint readout** of state, command and |Δ| per joint at the playhead, plus the mean tracking
   error for the whole episode
 - **Small footprint**: the only runtime dependencies are `three` and `urdf-loader`. The plots are
@@ -57,7 +57,8 @@ URL parameters are handy for sharing a specific moment:
 
 `tools/convert_lerobot.py` reads a local LeRobot v2.x dataset (`meta/info.json`,
 `data/chunk-*/episode_*.parquet` and `videos/`) without modifying it. It writes one compact JSON file
-per episode and an H.264 re-encode of one camera stream, then merges the new episodes into
+per episode, an H.264 re-encode of one camera stream, and a 480 px JPEG sequence extracted from it
+(what the viewer shows), then merges the new episodes into
 `public/episodes/index.json`.
 
 ```bash
@@ -149,7 +150,7 @@ my self-built SO-100 leader/follower pair and LeRobot:
 | `teleop-block-pickup-ep0` | `HelloCephalopod/block_pickup_16`, episode 0 | Teleoperated demo, "Place the block in the bowl", 30 fps, 447 frames |
 | `policy-rollout-ep0` | `HelloCephalopod/eval_block_pickup_42`, episode 0 | A policy eval rollout on the same task. It reaches but misses the grasp. |
 
-The video is `observation.images.front` (overhead), re-encoded to 640 px H.264. I release the
+The footage is `observation.images.front` (overhead), re-encoded to 640 px H.264 and extracted to 480 px JPEG frames. I release the
 sample data under CC BY 4.0, the same terms LeRobot's community datasets usually use.
 
 ## Project layout
@@ -157,11 +158,12 @@ sample data under CC BY 4.0, the same terms LeRobot's community datasets usually
 ```
 index.html                 app shell
 src/main.ts                playback clock, UI wiring, URL params
+src/camera.ts              camera pane: JPEG frames drawn by index on a canvas
 src/scene.ts               three.js scene, lights, floor, URDF loading, solid + ghost arms
 src/plots.ts               per-joint canvas charts with playhead + click-to-seek
 src/readout.ts             state / command / tracking-error table
 src/episode.ts             episode JSON types, time→frame lookup, interpolation
-tools/convert_lerobot.py   LeRobot dataset → episode JSON + H.264 video
+tools/convert_lerobot.py   LeRobot dataset → episode JSON + H.264 video + JPEG frames
 tools/capture.mjs          headless-Chrome screenshots / GIF via CDP (no npm deps)
 public/urdf/so100/         SO-100 URDF + STL meshes (Apache-2.0, TheRobotStudio)
 public/episodes/           sample episodes + index.json
