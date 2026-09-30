@@ -135,6 +135,14 @@ def encode_video(src: Path, dst: Path, width: int) -> bool:
         "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", str(dst),
     ]
     subprocess.run(cmd, check=True)
+    # The viewer presents frames by index from a JPEG sequence instead of playing the mp4,
+    # so playback stays locked to the arm in every browser (no autoplay or seek quirks).
+    frames = dst.with_suffix("")
+    frames.mkdir(exist_ok=True)
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error", "-i", str(dst),
+        "-vf", "scale=480:-2", "-q:v", "5", "-start_number", "0", str(frames / "%04d.jpg"),
+    ], check=True)
     return True
 
 
