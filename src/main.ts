@@ -10,6 +10,7 @@ import {
   type EpisodeIndexEntry,
   type JointName,
 } from './episode';
+import { CameraFrames } from './camera';
 import { JointPlots } from './plots';
 import { Readout } from './readout';
 import { TwinScene } from './scene';
@@ -24,7 +25,7 @@ const timeEl = $<HTMLSpanElement>('#time');
 const speedSel = $<HTMLSelectElement>('#speed');
 const showState = $<HTMLInputElement>('#show-state');
 const showAction = $<HTMLInputElement>('#show-action');
-const video = $<HTMLVideoElement>('#video');
+const camera = new CameraFrames($<HTMLCanvasElement>('#video'));
 const videoCard = $<HTMLDivElement>('#video-card');
 const meta = $<HTMLDivElement>('#meta');
 const status = $<HTMLDivElement>('#status');
@@ -39,6 +40,8 @@ let ep: Episode | undefined;
 let t = 0;
 let playing = false;
 let lastTick = performance.now();
+/** Bumped per selectEpisode so a slow load cannot overwrite a newer choice. */
+let loadToken = 0;
 
 function setStatus(msg: string | null): void {
   status.textContent = msg ?? '';
@@ -53,17 +56,12 @@ function setPlaying(p: boolean): void {
   playing = p;
   playBtn.dataset.state = p ? 'playing' : 'paused';
   playBtn.setAttribute('aria-label', p ? 'Pause' : 'Play');
-  if (video.src) {
-    if (p) void video.play().catch(() => undefined);
-    else video.pause();
-  }
   lastTick = performance.now();
 }
 
 function seek(to: number): void {
   if (!ep) return;
   t = Math.min(Math.max(to, 0), duration(ep) - 1e-3);
-  if (video.src) video.currentTime = t;
   applyFrame();
 }
 
@@ -78,6 +76,7 @@ function applyFrame(): void {
   if (twin.state) twin.state.visible = showState.checked;
   if (twin.ghost) twin.ghost.visible = !!ep.action && showAction.checked;
   twin.invalidate();
+  camera.show(pos);
 
   plots.update(t, pos, !!ep.action && showAction.checked);
   readout.update(pos);
@@ -88,19 +87,19 @@ function applyFrame(): void {
 async function selectEpisode(id: string): Promise<void> {
   const entry = episodes.find((e) => e.id === id) ?? episodes[0];
   if (!entry) return;
+  const token = ++loadToken;
+  const wasPlaying = playing;
   setPlaying(false);
   setStatus('Loading episode…');
-  ep = await loadEpisode(entry);
+  const next = await loadEpisode(entry);
+  if (token !== loadToken) return;
+  ep = next;
   picker.value = entry.id;
 
   const src = videoUrl(ep);
   videoCard.hidden = !src;
-  if (src) {
-    video.src = src;
-    video.load();
-  } else {
-    video.removeAttribute('src');
-  }
+  if (src) camera.load(src.replace(/\.mp4$/, ''), ep.frames);
+  else camera.clear();
   showAction.disabled = !ep.action;
   $('#action-legend').classList.toggle('disabled', !ep.action);
 
@@ -119,6 +118,8 @@ async function selectEpisode(id: string): Promise<void> {
   history.replaceState(null, '', url);
   setStatus(null);
   seek(0);
+  // Switching episodes keeps playing, the arm and the camera restart together.
+  if (wasPlaying) setPlaying(true);
 }
 
 function chip(k: string, v: string): HTMLElement {
@@ -133,18 +134,9 @@ function chip(k: string, v: string): HTMLElement {
 function tick(now: number): void {
   requestAnimationFrame(tick);
   if (ep && playing) {
-    const rate = Number(speedSel.value);
-    const dur = duration(ep);
-    // Video is the master clock while it plays at 1x-2x; otherwise use wall time.
-    if (video.src && !video.paused && video.readyState >= 2 && Math.abs(video.currentTime - t) < 0.5) {
-      t = video.currentTime;
-    } else {
-      t += ((now - lastTick) / 1000) * rate;
-    }
-    if (t >= dur - 1e-3) {
-      t = 0;
-      if (video.src) video.currentTime = 0;
-    }
+    // One clock drives the arm, plots and camera frames.
+    t += Math.min((now - lastTick) / 1000, 0.1) * Number(speedSel.value);
+    if (t >= duration(ep) - 1e-3) t = 0;
     applyFrame();
   }
   lastTick = now;
@@ -152,22 +144,11 @@ function tick(now: number): void {
 }
 
 playBtn.addEventListener('click', () => setPlaying(!playing));
-scrub.addEventListener('input', () => {
-  seek(Number(scrub.value));
-});
-speedSel.addEventListener('change', () => {
-  video.playbackRate = Number(speedSel.value);
-});
+scrub.addEventListener('input', () => seek(Number(scrub.value)));
 picker.addEventListener('change', () => void selectEpisode(picker.value));
 showState.addEventListener('change', applyFrame);
 showAction.addEventListener('change', applyFrame);
 plots.onSeek = seek;
-video.addEventListener('ended', () => {
-  if (playing) {
-    video.currentTime = 0;
-    void video.play().catch(() => undefined);
-  }
-});
 window.addEventListener('keydown', (e) => {
   if (!ep || (e.target as HTMLElement).tagName === 'SELECT') return;
   if (e.code === 'Space') {
@@ -218,15 +199,8 @@ window.__twin = {
   async seek(to: number) {
     setPlaying(false);
     seek(to);
-    if (video.src) {
-      await new Promise<void>((resolve) => {
-        const done = () => resolve();
-        if (!video.seeking && video.readyState >= 2) return done();
-        video.addEventListener('seeked', done, { once: true });
-        video.addEventListener('loadeddata', done, { once: true });
-        setTimeout(done, 3000);
-      });
-    }
+    if (ep) await camera.whenLoaded(framePosition(ep, t));
+    applyFrame();
     twin.render();
   },
   duration: () => (ep ? duration(ep) : 0),

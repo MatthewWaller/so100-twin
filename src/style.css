@@ -231,7 +231,7 @@ select {
   opacity: 0.75;
 }
 
-.card video {
+.card canvas {
   width: 100%;
   border-radius: 6px;
   background: #000;
